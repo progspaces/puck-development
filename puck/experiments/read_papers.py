@@ -18,7 +18,17 @@ from collections import Counter
 import threading 
 import time
 from queue import Queue
+import logging
 from actor import Actor
+
+# Source - https://stackoverflow.com/a/1009864
+# Posted by Ayman Hourieh, modified by community. See post 'Timeline' for change history
+# Retrieved 2026-09-15, License - CC BY-SA 4.0
+
+from argparse import ArgumentParser
+# each file should have it's own logger
+logger = logging.getLogger(__name__)
+
 
 DICT = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_APRILTAG_16H5)
 program_lookup = {}
@@ -87,7 +97,7 @@ def scale(cwidth, cheight, fheight, fwidth, coord_list):
     and scaling all coordinates that are inputted in.
     '''
     scaled_list = [(int(pair[0] * (cwidth/fwidth)), int(pair[1] * (cheight/fheight)) ) for pair in coord_list]
-    print(scaled_list)
+    # print(scaled_list)
     return scaled_list
 
 
@@ -112,7 +122,7 @@ new_shape, canvas_id, update_shape
 
 
 def test_run(self:Actor):
-    print("Started Test_run")
+    logger.log(level = 17, msg = f"test_run has been called sucessfully")
     first_message=self.recieve()
     assert first_message[0]=="drawing_queue"  ## THIS IS WHAT YOU SHOULD GET
     ## local variables
@@ -120,6 +130,7 @@ def test_run(self:Actor):
     associated_canvas_ids=[]
     spawned_actors=[]
     message= self.recieve()
+    logger.log(level = 17, msg = f"test_run has been gotten {message}")
     match message:
         case ("kill"):
             self.end()
@@ -130,16 +141,19 @@ def test_run(self:Actor):
         case ("information", *info):
             match info:
                 case ("add_ids", id_list):
-                    print("GOT INFO")
+                    # print("GOT INFO")
                     associated_canvas_ids.append(id_list)
                 case _ as info:
-                    print("GOT INFO")
+                    # print("GOT INFO")
                     print(info)
+    logger.log(level = 17, msg = f"test_run has ended...")
+
 
 def draw_loop(drawing_queue:Queue,canvas:Canvas):
     if drawing_queue.empty() == False:
         message = drawing_queue.get()
-        print(f"draw loop {message}")
+        logger.log(level = 17, msg = f"draw loop has been called and has gotten message, {message}")
+        # print(f"draw loop {message}")
         match message:
             case "kill"| "Kill":
                 print('hmm, not sure yet what to do with this as I am a queue and not an actor.')
@@ -164,11 +178,12 @@ def draw_loop(drawing_queue:Queue,canvas:Canvas):
                         print(f"You have provided an invalid action message, '{invalid_action}' is not an action I understand")
             case _ as invalid_message: 
                 print(f"You have provided an invalid message, '{invalid_message}' is not a message I understand")
-                        
+        logger.log(level = 17, msg = f"drawing loop has been reached its end")
+
 
 
 def handle_currently_recognized(program_encoding,current_coords, drawing_queue):
-        print("went into currently recognized")
+        # print("went into currently recognized")
         if program_encoding is not None: ## in other words the int form is a good value and we like it.
             if program_lookup.get(str(program_encoding)) is not None:
                 module_name = "puck.program_store." + program_lookup.get(str(program_encoding))##
@@ -192,20 +207,20 @@ def handle_raw_ids(ids,coords,drawing_queue):
         program_encoding = int("".join(map(str, ids)),4)
         if program_encoding == 192 or program_encoding == 48 or program_encoding == 12:
             program_encoding = 3
-        print(program_encoding)
+        logger.log(level = 16, msg = f"Raw id: {ids} to interpreted id: {program_encoding}")
         handle_currently_recognized(program_encoding,coords,drawing_queue)
         return program_encoding
     else:
         return None
 
 def webcamManyCaptures(base,buffer_size = 35):
+    logger.log(level = 1, msg = "Started WebcamManyCaptures without a hitch")
     cheight, cwidth = 1080,1920
     canvas = Canvas(height= cheight, width = cwidth, background='black')
     # v = StringVar(value= "FOR NOW") 
-    # text_label_replace = canvas.create_text((200,50),text=v.get(),font=("Helvetica", 50), fill= "White")
-    
+    # text_label_replace = canvas.create_text((200,50),text=v.get(),font=("Helvetica", 50), fill= "White"
     canvas.pack()
-
+    logger.log(level = 1, msg = "Created and packed Canvas")
     drawing_queue = Queue()
 
     cam = cv.VideoCapture(0)
@@ -214,11 +229,11 @@ def webcamManyCaptures(base,buffer_size = 35):
     papers_and_ids = paper_frame_based(frame)
     for paper, id, in papers_and_ids:
         program_encoding = handle_raw_ids(id, paper, drawing_queue)
-        print(program_encoding)
+        logger.log(level = 20, msg = f"First program encoding found is {program_encoding}")
     # v = StringVar(value= str(program_encoding)) 
     
     def update(cam):
-        print("entered update")
+        logger.log(level = 19, msg = f"Called the Update Function")
         _, frame = cam.read()
         window_name = "Second Monitor Window"
         cv.namedWindow(window_name, cv.WINDOW_FREERATIO,)
@@ -230,7 +245,9 @@ def webcamManyCaptures(base,buffer_size = 35):
         ## whatever it "sees" is "in the scene" by this point. whatever it doesn't "see" should be killed off.
         # for coords, ids in frames_frame_based(frame): ## needs to return a list of tuples
             program_encoding = handle_raw_ids(ids, coords, drawing_queue)
-            print(program_encoding)
+            # print(program_encoding)
+            logger.log(level = 18, msg = f"Saw program encoding, {program_encoding}")
+
    
                 ## using discard so it doesn't throw an error when pre_existing_encodings doesn't have it
                 ## use remove to throw an error when the set of pre_existing_encordings doesn't have it.
@@ -240,25 +257,38 @@ def webcamManyCaptures(base,buffer_size = 35):
         #     assert False
         #     actor.end()
         #     encoding_to_actor.pop(encoding)
-        print('got to draw loop')
+        # print('got to draw loop')
         draw_loop(drawing_queue=drawing_queue, canvas= canvas)
         if cv.waitKey(1) == ord('q'): ## stopping condition
-            print("WE ARE STARTING TO STOP THE ENDING CONDITION PLEASE YES")
+            logger.log(level = 17, msg = f"In the stopping condition")
             for encoding,a in encoding_to_actor.items():
                 a.end()
-                print(f"encoding asscoiated is : {encoding}")
-                print("GOT PAST END ONTO JOIN")
+                logger.log(level = 16, msg = f"encoding asscoiated is : {encoding}")
+                logger.log(level = 16, msg = "Got past the end, onto Join now")
                 a.join()
-            print("done with the joining and the exiting")
+            logger.log(level = 17, msg = f"finished the joining and ending")
             base.quit()
         base.after(200, update, cam)  # Timed Check, adding itself back onto the queue to run 20ms later
         
     base.after(20, update, cam)
-    print("pre mainloop")
+    logger.log(level = 20, msg = f"Pre mainloop start")
     base.mainloop()
-    print("post mainloop")
+    logger.log(level = 20, msg = f"Post mainloop start")
     
     cam.release()
     cv.destroyAllWindows()
 
+
+
+parser = ArgumentParser()
+parser.add_argument('--logging',action='store_true')   
+parser.add_argument('--llevel', type = int)   
+args = parser.parse_args()
+print(args)
+if (args.logging):
+    log_level = args.llevel
+    logging.basicConfig(level=log_level)
+    ## higher logging levels don't include lower logging levels
+    ## Lower logging levels include all higher logging levels
+    logger.log(level = log_level, msg= f"Logging working at level {log_level}")
 webcamManyCaptures(base= base)
