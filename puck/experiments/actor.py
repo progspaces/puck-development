@@ -5,7 +5,7 @@ from queue import Queue
 class Actor(Thread):
     def __init__(self, target):
         super().__init__(target=target, args=(self,))
-        self.mailbox: Queue = Queue.queue()
+        self.mailbox: Queue = Queue()
 
     def send(self:Self, message):
         """

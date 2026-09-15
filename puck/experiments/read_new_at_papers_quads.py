@@ -111,7 +111,7 @@ new_shape, canvas_id, update_shape
 ####
 
 
-def test_run(self):
+def test_run(self:Actor):
     print("Started Test_run")
     first_message=self.recieve()
     assert first_message[0]=="drawing_queue"  ## THIS IS WHAT YOU SHOULD GET
@@ -119,33 +119,52 @@ def test_run(self):
     drawing_queue= first_message[1]
     associated_canvas_ids=[]
     spawned_actors=[]
-    match first_message:
+    message= self.recieve()
+    match message:
         case ("kill"):
             self.end()
-        case ("new_shape", "coordinates"):
-            pass
-        case ("update_shape", "coordinates"):
-            pass
-        case ("inform", "ids", ):
-            pass
+        case ("new_shape",("type", type),("coordinates", coordinates)):
+            drawing_queue.put(("action", ("new", ("type", type), ("sender", self), ("coordinates", coordinates))))
+        case ("update_shape",("id", id), ("coordinates", coordinates)):
+            drawing_queue.put(("action", ("update", ("id", id), ("coordinates", coordinates))))
+        case ("information", *info):
+            match info:
+                case ("add_ids", id_list):
+                    print("GOT INFO")
+                    associated_canvas_ids.append(id_list)
+                case _ as info:
+                    print("GOT INFO")
+                    print(info)
 
-def draw_loop(drawing_queue:Queue,canvas):
+def draw_loop(drawing_queue:Queue,canvas:Canvas):
     if drawing_queue.empty() == False:
         message = drawing_queue.get()
         print(f"draw loop {message}")
         match message:
-            case ("kill") | ("Kill"):
-                print('hmm, not sure yet what to do with this as I am a queue and not an actor')
+            case "kill"| "Kill":
+                print('hmm, not sure yet what to do with this as I am a queue and not an actor.')
             case ("action", _ as action, ):
                 match action:
-                    case ("new", *rest):
-                        # make a new thing 
-                        sender = rest.get("sender")
-                        id = canvas.create_polygon(rest.get("coordinates"), outline='blue',fill="white", width=2)
-                        sender.send(("id",id))
-                    case ("updsate", ("id", *rest), ("coordinates", *wild)):
-                        canvas.coords(rest[0], rest[1])
-                
+                    case (("new", ("type", type), ("sender", sender), ("coordinates", coordinates))):
+                        match type:
+                            # sender.send(("id",id))
+                            case "rectangle" | "polygon":
+                                id = canvas.create_polygon(coordinates)
+                                sender.send(("information", ("add_ids", [id])))
+                            case _:
+                                print(f"You've given me the type '{type}'. I do not know type '{type}', "\
+                                    "please try something else, such as 'rectangle' or 'polygon'")
+                    case ("new", *invalid_new):
+                        print(f"You have provided me this message, {invalid_new}," \
+                            "to create a new graphical object, but I'm not sure what type of object. \n " \
+                            "It would help if you specified the type of object you want to add.")
+                    case ("update", ("id", id), ("coordinates", coordinates), *further_info):
+                        canvas.coords(id, coordinates)
+                    case _ as invalid_action:
+                        print(f"You have provided an invalid action message, '{invalid_action}' is not an action I understand")
+            case _ as invalid_message: 
+                print(f"You have provided an invalid message, '{invalid_message}' is not a message I understand")
+                        
 
 
 def handle_currently_recognized(program_encoding,current_coords, drawing_queue):
@@ -158,12 +177,12 @@ def handle_currently_recognized(program_encoding,current_coords, drawing_queue):
                     t = Actor(target = test_run)
                     encoding_to_actor[program_encoding] = t
                     t.start()
-                    t.send({"type": "standard", "drawing_queue":drawing_queue})
-                    t.send({"type": "new_shape", "info": current_coords})
+                    t.send(("drawing_queue",drawing_queue)) ## First messsage
+                    t.send(("new_shape",("type", "rectangle"),("coordinates", current_coords)))
                 # Case two we have seen this before and the thread is running.
                 else:
                     t = encoding_to_actor.get(program_encoding)
-                    t.send({"type": "update_shape", "info": current_coords})
+                    t.send(("update_shape",("id", id), ("coordinates", current_coords)))
             else: # No associated program
                 print(f"There is no associated program with the encoding: {program_encoding}")
 
