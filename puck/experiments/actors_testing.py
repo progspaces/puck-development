@@ -32,6 +32,7 @@ def triangle_actor(main_id: ActorID):
         case _:
             logger.error("Unexpected message.")
 
+    # update the animation
     while True:
         # pause for a second
         time.sleep(0.01)
