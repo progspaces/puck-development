@@ -171,7 +171,10 @@ def draw_loop(drawing_queue:Queue,canvas:Canvas):
                         match type:
                             # sender.send(("id",id))
                             case "rectangle" | "polygon":
-                                id = canvas.create_polygon(coordinates)
+                                outline = "blue"
+                                fill = "white"
+                                width = 2
+                                id = canvas.create_polygon(coordinates,fill=fill, outline=outline, width=width )
                                 sender.send(("information", ("add_ids", [id])))
                             case _:
                                 print(f"You've given me the type '{type}'. I do not know type '{type}', "\
@@ -188,7 +191,7 @@ def draw_loop(drawing_queue:Queue,canvas:Canvas):
             case _ as invalid_message: 
                 print(f"You have provided an invalid message, '{invalid_message}' is not a message I understand")
         logger.log(level = 17, msg = f"drawing loop has been reached its end")
-        canvas.pack()
+    canvas.pack()
 
 
 
@@ -233,6 +236,7 @@ def webcamManyCaptures(base,buffer_size = 35):
     # v = StringVar(value= "FOR NOW") 
     # text_label_replace = canvas.create_text((200,50),text=v.get(),font=("Helvetica", 50), fill= "White"
     canvas.pack()
+    initial_number = len(canvas.find_all())
     logger.log(level = 1, msg = "Created and packed Canvas")
     drawing_queue = Queue()
 
@@ -281,12 +285,11 @@ def webcamManyCaptures(base,buffer_size = 35):
                 logger.log(level = 16, msg = "Got past the end, onto Join now")
                 a.join()
             logger.log(level = 17, msg = f"finished the joining and ending")
+            logger.log(level = 17, msg = f"The initial number of objects in the canvas was {initial_number}" )
+            logger.log(level = 17, msg = f"The number of objects in the canvas is {len(canvas.find_all())}" )
             base.quit()
-        base.update_idletasks()
-        base.update()
-        base.after(20, update, cam)  # Timed Check, adding itself back onto the queue to run 20ms later
-    base.update_idletasks() 
-    base.update()
+        base.after(16, update, cam)  # Timed Check, adding itself back onto the queue to run 20ms later
+
     base.after(20, update, cam)
     logger.log(level = 20, msg = f"Pre mainloop start")
     base.mainloop()
