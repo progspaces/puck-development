@@ -21,4 +21,4 @@ class Actor(Thread):
         return self.mailbox.get()
 
     def end(self):
-        self.send({"type": "kill"})
+        self.send("kill")

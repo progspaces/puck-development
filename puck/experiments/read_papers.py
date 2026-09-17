@@ -129,23 +129,31 @@ def test_run(self:Actor):
     drawing_queue= first_message[1]
     associated_canvas_ids=[]
     spawned_actors=[]
-    message= self.recieve()
-    logger.log(level = 17, msg = f"test_run has been gotten {message}")
-    match message:
-        case ("kill"):
-            self.end()
-        case ("new_shape",("type", type),("coordinates", coordinates)):
-            drawing_queue.put(("action", ("new", ("type", type), ("sender", self), ("coordinates", coordinates))))
-        case ("update_shape",("id", id), ("coordinates", coordinates)):
-            drawing_queue.put(("action", ("update", ("id", id), ("coordinates", coordinates))))
-        case ("information", *info):
-            match info:
-                case ("add_ids", id_list):
-                    # print("GOT INFO")
-                    associated_canvas_ids.append(id_list)
-                case _ as info:
-                    # print("GOT INFO")
-                    print(info)
+    while True:
+        message= self.recieve()
+        logger.log(level = 17, msg = f"test_run has been gotten {message}")
+        match message:
+            case ("kill"):
+                self.end()
+                break
+            case ("new_shape",("type", type),("coordinates", coordinates)):
+                drawing_queue.put(("action", ("new", ("type", type), ("sender", self), ("coordinates", coordinates))))
+            case ("update_shape",("id", id), ("coordinates", coordinates)):
+                if associated_canvas_ids:
+                    drawing_queue.put(("action", ("update", ("id", associated_canvas_ids[0]), ("coordinates", coordinates))))
+                else:
+                    logger.log(level = 20, msg = f"We have no associated canvas ids yet so we cannot update.")
+            case ("information", *info):
+                match info[0]:
+                    case ("add_ids", id_list):
+                        # print("GOT INFO")
+                        associated_canvas_ids.append(id_list)
+                    case _ as info:
+                        # print("GOT INFO")
+                        print(info)
+            case _ as undefined:
+                print(f"Youv'e given me this message: {undefined} \n" \
+                      "I do not know what to do with it as I do not have a match case....")
     logger.log(level = 17, msg = f"test_run has ended...")
 
 
@@ -174,11 +182,13 @@ def draw_loop(drawing_queue:Queue,canvas:Canvas):
                             "It would help if you specified the type of object you want to add.")
                     case ("update", ("id", id), ("coordinates", coordinates), *further_info):
                         canvas.coords(id, coordinates)
+                        # print("you've gotten an update to the canvas.")
                     case _ as invalid_action:
                         print(f"You have provided an invalid action message, '{invalid_action}' is not an action I understand")
             case _ as invalid_message: 
                 print(f"You have provided an invalid message, '{invalid_message}' is not a message I understand")
         logger.log(level = 17, msg = f"drawing loop has been reached its end")
+        canvas.pack()
 
 
 
@@ -197,14 +207,17 @@ def handle_currently_recognized(program_encoding,current_coords, drawing_queue):
                 # Case two we have seen this before and the thread is running.
                 else:
                     t = encoding_to_actor.get(program_encoding)
-                    t.send(("update_shape",("id", id), ("coordinates", current_coords)))
+                    t.send(("update_shape",("id", 0), ("coordinates", current_coords))) 
+                    ## THIS WONT WORK.. how do you know the id of what you're updating.....
+                    ## Gave it a useless id, will need to change.
             else: # No associated program
                 print(f"There is no associated program with the encoding: {program_encoding}")
 
 
 def handle_raw_ids(ids,coords,drawing_queue):
     if ids is not None:
-        program_encoding = int("".join(map(str, ids)),4)
+        filtered = [id for id in ids if id <5][0:5]
+        program_encoding = int("".join(map(str, filtered)),4)
         if program_encoding == 192 or program_encoding == 48 or program_encoding == 12:
             program_encoding = 3
         logger.log(level = 16, msg = f"Raw id: {ids} to interpreted id: {program_encoding}")
@@ -216,7 +229,7 @@ def handle_raw_ids(ids,coords,drawing_queue):
 def webcamManyCaptures(base,buffer_size = 35):
     logger.log(level = 1, msg = "Started WebcamManyCaptures without a hitch")
     cheight, cwidth = 1080,1920
-    canvas = Canvas(height= cheight, width = cwidth, background='black')
+    canvas = Canvas(base, height= cheight, width = cwidth, background='black')
     # v = StringVar(value= "FOR NOW") 
     # text_label_replace = canvas.create_text((200,50),text=v.get(),font=("Helvetica", 50), fill= "White"
     canvas.pack()
@@ -259,6 +272,7 @@ def webcamManyCaptures(base,buffer_size = 35):
         #     encoding_to_actor.pop(encoding)
         # print('got to draw loop')
         draw_loop(drawing_queue=drawing_queue, canvas= canvas)
+        # print("past the update")
         if cv.waitKey(1) == ord('q'): ## stopping condition
             logger.log(level = 17, msg = f"In the stopping condition")
             for encoding,a in encoding_to_actor.items():
@@ -268,8 +282,11 @@ def webcamManyCaptures(base,buffer_size = 35):
                 a.join()
             logger.log(level = 17, msg = f"finished the joining and ending")
             base.quit()
-        base.after(200, update, cam)  # Timed Check, adding itself back onto the queue to run 20ms later
-        
+        base.update_idletasks()
+        base.update()
+        base.after(20, update, cam)  # Timed Check, adding itself back onto the queue to run 20ms later
+    base.update_idletasks() 
+    base.update()
     base.after(20, update, cam)
     logger.log(level = 20, msg = f"Pre mainloop start")
     base.mainloop()
