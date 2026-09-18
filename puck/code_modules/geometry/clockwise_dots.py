@@ -49,6 +49,26 @@ def clockwise_pt(points, black):
     return clockwise_pt
 
 
+def order_no_color_rectangle(point_list, reference):
+    ordered = [None, None, None]
+    # print(reference)
+    ordered[0] = clockwise_pt(point_list, reference)
+    ordered[1] = clockwise_pt(point_list, ordered[0])
+    # print(ordered)
+    # print(point_list)
+    ordered[2] = clockwise_pt(point_list, ordered[1])
+    # ordered[2] = point_list[point_list not in ordered]
+    assert ordered[0] != ordered[1]
+    assert ordered[1] != ordered[2]
+    assert ordered[0] != ordered[2]
+    # print(f"reference is : {reference}")
+    # print(f"color_coords: {colored_coords}")
+    return ordered
+    # try:
+    #     return sorted(colored_coords, key = lambda x: ordered.index(x[0]))
+    # except ValueError:
+    #     return {"ref
+
 def order_rectangle(color_point_list, reference):
     assert len(color_point_list) == 4
     point_list =[p[0] for p in color_point_list]

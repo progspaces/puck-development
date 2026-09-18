@@ -20,6 +20,7 @@ import time
 from queue import Queue
 import logging
 from actor import Actor
+from puck.code_modules.geometry import clockwise_dots
 
 # Source - https://stackoverflow.com/a/1009864
 # Posted by Ayman Hourieh, modified by community. See post 'Timeline' for change history
@@ -224,10 +225,18 @@ def handle_raw_ids(ids,coords,drawing_queue):
         if program_encoding == 192 or program_encoding == 48 or program_encoding == 12:
             program_encoding = 3
         logger.log(level = 16, msg = f"Raw id: {ids} to interpreted id: {program_encoding}")
+        coords = order_coordinates_to_avoid_x(coords=coords)
         handle_currently_recognized(program_encoding,coords,drawing_queue)
         return program_encoding
     else:
         return None
+
+
+def order_coordinates_to_avoid_x(coords):
+    starting_point = coords[0]
+    ordered = clockwise_dots.order_no_color_rectangle(coords, starting_point)
+    ordered.insert(0,starting_point)
+    return ordered
 
 def webcamManyCaptures(base,buffer_size = 35):
     logger.log(level = 1, msg = "Started WebcamManyCaptures without a hitch")
@@ -304,7 +313,6 @@ parser = ArgumentParser()
 parser.add_argument('--logging',action='store_true')   
 parser.add_argument('--llevel', type = int)   
 args = parser.parse_args()
-print(args)
 if (args.logging):
     log_level = args.llevel
     logging.basicConfig(level=log_level)
